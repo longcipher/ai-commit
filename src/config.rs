@@ -95,7 +95,7 @@ impl AppConfig {
         }
 
         let content = std::fs::read_to_string(&config_path)?;
-        let mut config: AppConfig = toml::from_str(&content)?;
+        let mut config: Self = toml::from_str(&content)?;
 
         // Expand environment variables
         config.expand_env_vars();

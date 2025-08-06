@@ -74,7 +74,7 @@ pub mod commit {
         context: Option<String>,
     ) -> Result<()> {
         let config = AppConfig::load()?;
-        let mut repo = GitRepo::new(".")?;
+        let repo = GitRepo::new(".")?;
 
         // Check if we're in a git repository
         if !repo.is_git_repo() {
@@ -312,7 +312,7 @@ pub mod models {
 
     use crate::{ai::AiClient, config::AppConfig};
 
-    pub async fn handle_models_command() -> Result<()> {
+    pub fn handle_models_command() -> Result<()> {
         let config = AppConfig::load()?;
         let ai_client = AiClient::new(&config);
 
@@ -333,9 +333,10 @@ pub mod models {
 }
 
 pub mod auth {
+    use std::process::Command;
+
     use anyhow::Result;
     use console::style;
-    use std::process::Command;
 
     use crate::error::AppError;
 
@@ -343,56 +344,54 @@ pub mod auth {
         println!("{}", style("Authenticating with GitHub Copilot...").bold());
 
         // Check if GitHub CLI is installed
-        let gh_version_output = Command::new("gh")
-            .arg("--version")
-            .output();
+        let gh_version_output = Command::new("gh").arg("--version").output();
 
         if gh_version_output.is_err() {
             return Err(AppError::GitHubCliNotFound.into());
         }
 
         // Check if user is already authenticated
-        let auth_status = Command::new("gh")
-            .args(["auth", "status"])
-            .output();
+        let auth_status = Command::new("gh").args(["auth", "status"]).output();
 
-        if let Ok(output) = auth_status {
-            if output.status.success() {
-                // Check if GitHub Copilot scope is available
-                let status_str = String::from_utf8_lossy(&output.stderr);
-                if status_str.contains("copilot") || status_str.contains("read:user") {
-                    println!("{}", style("✓ Already authenticated with GitHub Copilot").green());
-                    return Ok(());
-                }
+        if let Ok(output) = auth_status
+            && output.status.success()
+        {
+            // Check if GitHub Copilot scope is available
+            let status_str = String::from_utf8_lossy(&output.stderr);
+            if status_str.contains("copilot") || status_str.contains("read:user") {
+                println!(
+                    "{}",
+                    style("✓ Already authenticated with GitHub Copilot").green()
+                );
+                return Ok(());
             }
         }
 
         // Authenticate with required scopes
         println!("{}", style("Launching GitHub authentication...").yellow());
-        
+
         let auth_result = Command::new("gh")
-            .args([
-                "auth", 
-                "login", 
-                "--scopes", 
-                "read:user,user:email",
-                "--web"
-            ])
+            .args(["auth", "login", "--scopes", "read:user,user:email", "--web"])
             .status();
 
         match auth_result {
             Ok(status) if status.success() => {
-                println!("{}", style("✓ Successfully authenticated with GitHub").green());
-                println!("{}", style("Note: GitHub Copilot requires an active subscription").dim());
-                println!("{}", style("The genai crate will handle Copilot API access automatically").dim());
+                println!(
+                    "{}",
+                    style("✓ Successfully authenticated with GitHub").green()
+                );
+                println!(
+                    "{}",
+                    style("Note: GitHub Copilot requires an active subscription").dim()
+                );
+                println!(
+                    "{}",
+                    style("The genai crate will handle Copilot API access automatically").dim()
+                );
                 Ok(())
             }
-            Ok(_) => {
-                Err(AppError::AuthenticationFailed.into())
-            }
-            Err(e) => {
-                Err(AppError::AuthenticationError(e.to_string()).into())
-            }
+            Ok(_) => Err(AppError::AuthenticationFailed.into()),
+            Err(e) => Err(AppError::AuthenticationError(e.to_string()).into()),
         }
     }
 }

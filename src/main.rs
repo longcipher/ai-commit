@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
             cli::config::handle_config_command(action)?;
         }
         Some(Commands::Models) => {
-            cli::models::handle_models_command().await?;
+            cli::models::handle_models_command()?;
         }
         Some(Commands::Auth) => {
             cli::auth::handle_auth_command()?;

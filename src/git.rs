@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fmt::Write, path::Path};
 
 use anyhow::Result;
 use git2::{DiffOptions, ErrorCode, Repository, Status, StatusOptions};
@@ -112,7 +112,6 @@ impl GitRepo {
                     worktree_status = 'T';
                 }
 
-                use std::fmt::Write;
                 writeln!(output, "{index_status}{worktree_status} {path}")
                     .expect("Failed to write to string buffer");
             }
@@ -121,23 +120,23 @@ impl GitRepo {
         Ok(output)
     }
 
-    pub fn stage_all(&mut self) -> Result<()> {
+    pub fn stage_all(&self) -> Result<()> {
         let mut index = self.repo.index()?;
-        index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
+        index.add_all(std::iter::once(&"*"), git2::IndexAddOption::DEFAULT, None)?;
         index.write()?;
         Ok(())
     }
 
-    pub fn stage_modified(&mut self) -> Result<()> {
+    pub fn stage_modified(&self) -> Result<()> {
         let mut index = self.repo.index()?;
-        index.update_all(["*"].iter(), None)?;
+        index.update_all(std::iter::once(&"*"), None)?;
         index.write()?;
         Ok(())
     }
 
-    pub fn stage_untracked(&mut self) -> Result<()> {
+    pub fn stage_untracked(&self) -> Result<()> {
         let mut index = self.repo.index()?;
-        index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
+        index.add_all(std::iter::once(&"*"), git2::IndexAddOption::DEFAULT, None)?;
         index.write()?;
         Ok(())
     }

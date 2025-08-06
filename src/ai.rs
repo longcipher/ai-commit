@@ -1,15 +1,16 @@
 use anyhow::Result;
+use copilot_client::CopilotClient;
 use genai::{
     Client,
     chat::{ChatMessage, ChatOptions, ChatRequest},
 };
-use copilot_client::CopilotClient;
 use tracing::{debug, info};
 
 use crate::{config::AppConfig, error::AppError};
 
 pub struct AiClient {
     client: Client,
+    #[allow(dead_code)]
     copilot_client: Option<CopilotClient>,
     config: AppConfig,
 }
@@ -18,17 +19,9 @@ impl AiClient {
     pub fn new(config: &AppConfig) -> Self {
         let client = Client::default();
 
-        // Initialize GitHub Copilot client if the provider is github
-        let copilot_client = if config.ai.provider == "github" {
-            // Note: CopilotClient will be initialized asynchronously when needed
-            None
-        } else {
-            None
-        };
-
         Self {
             client,
-            copilot_client,
+            copilot_client: None, // Always None as CopilotClient is created when needed
             config: config.clone(),
         }
     }
@@ -46,7 +39,9 @@ impl AiClient {
 
         // Use GitHub Copilot client if provider is github
         if self.config.ai.provider == "github" {
-            return self.generate_with_copilot(diff, status, context, model).await;
+            return self
+                .generate_with_copilot(diff, status, context, model)
+                .await;
         }
 
         // Use genai client for other providers
@@ -117,12 +112,10 @@ impl AiClient {
             .await
             .map_err(|e| AppError::AuthenticationError(e.to_string()))?;
 
-        let mut messages = vec![
-            copilot_client::Message {
-                role: "system".to_string(),
-                content: self.config.prompts.system_prompt.clone(),
-            }
-        ];
+        let mut messages = vec![copilot_client::Message {
+            role: "system".to_string(),
+            content: self.config.prompts.system_prompt.clone(),
+        }];
 
         // Add context if provided
         if let Some(ctx) = context {
@@ -142,16 +135,14 @@ impl AiClient {
         if !diff.trim().is_empty() {
             messages.push(copilot_client::Message {
                 role: "user".to_string(),
-                content: format!(
-                    "`git diff --staged`:\n```diff\n{}\n```\n\n",
-                    diff.trim()
-                ),
+                content: format!("`git diff --staged`:\n```diff\n{}\n```\n\n", diff.trim()),
             });
         }
 
         messages.push(copilot_client::Message {
             role: "user".to_string(),
-            content: "Generate a conventional commit message based on the changes above:".to_string(),
+            content: "Generate a conventional commit message based on the changes above:"
+                .to_string(),
         });
 
         debug!("Sending request to GitHub Copilot with model: {}", model);
@@ -170,7 +161,10 @@ impl AiClient {
             .trim()
             .to_string();
 
-        info!("Generated commit message with GitHub Copilot: {}", commit_message);
+        info!(
+            "Generated commit message with GitHub Copilot: {}",
+            commit_message
+        );
 
         Ok(commit_message)
     }
@@ -217,9 +211,7 @@ impl AiClient {
                 "command-r".to_string(),
                 "command-light".to_string(),
             ],
-            "ollama" => vec![
-                "gpt-oss:20b".to_string(),
-            ],
+            "ollama" => vec!["gpt-oss:20b".to_string()],
             _ => return Err(AppError::UnsupportedProvider(self.config.ai.provider.clone()).into()),
         };
 
