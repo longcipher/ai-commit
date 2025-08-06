@@ -181,11 +181,9 @@ impl AiClient {
             // Return the models that are typically available in GitHub Copilot
             // These would normally be fetched from the API, but for simplicity we'll use a static list
             return Ok(vec![
-                "gpt-4o".to_string(),
-                "gpt-4o-mini".to_string(),
-                "claude-3-5-sonnet".to_string(),
-                "claude-3-haiku".to_string(),
-                "gemini-2.0-flash-001".to_string(),
+                "gpt-4.1".to_string(),
+                "gpt-4.1-mini".to_string(),
+                "gpt-4.1-nano".to_string(),
             ]);
         }
 
@@ -220,11 +218,7 @@ impl AiClient {
                 "command-light".to_string(),
             ],
             "ollama" => vec![
-                "llama3.2:3b".to_string(),
-                "llama3.1:8b".to_string(),
-                "codellama:7b".to_string(),
-                "gemma:2b".to_string(),
-                "mistral:7b".to_string(),
+                "gpt-oss:20b".to_string(),
             ],
             _ => return Err(AppError::UnsupportedProvider(self.config.ai.provider.clone()).into()),
         };
