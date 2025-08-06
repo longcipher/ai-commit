@@ -31,6 +31,9 @@ async fn main() -> Result<()> {
         Some(Commands::Models) => {
             cli::models::handle_models_command().await?;
         }
+        Some(Commands::Auth) => {
+            cli::auth::handle_auth_command()?;
+        }
         None => {
             // Default: commit command
             cli::commit::handle_commit_command(cli.all, cli.yes, cli.model, cli.context).await?;

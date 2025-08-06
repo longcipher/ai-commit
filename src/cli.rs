@@ -34,6 +34,8 @@ pub enum Commands {
     },
     /// List available models for the current provider
     Models,
+    /// Authenticate with GitHub Copilot
+    Auth,
 }
 
 #[derive(Subcommand, Debug)]
@@ -327,5 +329,70 @@ pub mod models {
         }
 
         Ok(())
+    }
+}
+
+pub mod auth {
+    use anyhow::Result;
+    use console::style;
+    use std::process::Command;
+
+    use crate::error::AppError;
+
+    pub fn handle_auth_command() -> Result<()> {
+        println!("{}", style("Authenticating with GitHub Copilot...").bold());
+
+        // Check if GitHub CLI is installed
+        let gh_version_output = Command::new("gh")
+            .arg("--version")
+            .output();
+
+        if gh_version_output.is_err() {
+            return Err(AppError::GitHubCliNotFound.into());
+        }
+
+        // Check if user is already authenticated
+        let auth_status = Command::new("gh")
+            .args(["auth", "status"])
+            .output();
+
+        if let Ok(output) = auth_status {
+            if output.status.success() {
+                // Check if GitHub Copilot scope is available
+                let status_str = String::from_utf8_lossy(&output.stderr);
+                if status_str.contains("copilot") || status_str.contains("read:user") {
+                    println!("{}", style("✓ Already authenticated with GitHub Copilot").green());
+                    return Ok(());
+                }
+            }
+        }
+
+        // Authenticate with required scopes
+        println!("{}", style("Launching GitHub authentication...").yellow());
+        
+        let auth_result = Command::new("gh")
+            .args([
+                "auth", 
+                "login", 
+                "--scopes", 
+                "read:user,user:email",
+                "--web"
+            ])
+            .status();
+
+        match auth_result {
+            Ok(status) if status.success() => {
+                println!("{}", style("✓ Successfully authenticated with GitHub").green());
+                println!("{}", style("Note: GitHub Copilot requires an active subscription").dim());
+                println!("{}", style("The genai crate will handle Copilot API access automatically").dim());
+                Ok(())
+            }
+            Ok(_) => {
+                Err(AppError::AuthenticationFailed.into())
+            }
+            Err(e) => {
+                Err(AppError::AuthenticationError(e.to_string()).into())
+            }
+        }
     }
 }

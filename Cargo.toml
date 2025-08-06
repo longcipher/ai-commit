@@ -20,6 +20,7 @@ clap = { version = "4.5", features = ["derive", "env", "color"] }
 
 # AI/LLM client
 genai = "0.4.0-alpha.10"
+copilot-client = "0.1.0"
 
 # Configuration management
 config = "0.15.13"

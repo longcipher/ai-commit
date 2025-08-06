@@ -3,12 +3,14 @@ use genai::{
     Client,
     chat::{ChatMessage, ChatOptions, ChatRequest},
 };
+use copilot_client::CopilotClient;
 use tracing::{debug, info};
 
 use crate::{config::AppConfig, error::AppError};
 
 pub struct AiClient {
     client: Client,
+    copilot_client: Option<CopilotClient>,
     config: AppConfig,
 }
 
@@ -16,8 +18,17 @@ impl AiClient {
     pub fn new(config: &AppConfig) -> Self {
         let client = Client::default();
 
+        // Initialize GitHub Copilot client if the provider is github
+        let copilot_client = if config.ai.provider == "github" {
+            // Note: CopilotClient will be initialized asynchronously when needed
+            None
+        } else {
+            None
+        };
+
         Self {
             client,
+            copilot_client,
             config: config.clone(),
         }
     }
@@ -33,6 +44,12 @@ impl AiClient {
 
         debug!("Generating commit message with model: {}", model);
 
+        // Use GitHub Copilot client if provider is github
+        if self.config.ai.provider == "github" {
+            return self.generate_with_copilot(diff, status, context, model).await;
+        }
+
+        // Use genai client for other providers
         let mut messages = vec![ChatMessage::system(&self.config.prompts.system_prompt)];
 
         // Add context if provided
@@ -87,9 +104,92 @@ impl AiClient {
         Ok(commit_message)
     }
 
+    async fn generate_with_copilot(
+        &self,
+        diff: &str,
+        status: &str,
+        context: Option<&str>,
+        model: &str,
+    ) -> Result<String> {
+        // Initialize GitHub Copilot client
+        let editor_version = "ai-commit/0.1.0".to_string();
+        let copilot_client = CopilotClient::from_env_with_models(editor_version)
+            .await
+            .map_err(|e| AppError::AuthenticationError(e.to_string()))?;
+
+        let mut messages = vec![
+            copilot_client::Message {
+                role: "system".to_string(),
+                content: self.config.prompts.system_prompt.clone(),
+            }
+        ];
+
+        // Add context if provided
+        if let Some(ctx) = context {
+            messages.push(copilot_client::Message {
+                role: "user".to_string(),
+                content: format!("Context: {ctx}\n\n"),
+            });
+        }
+
+        // Add git status
+        messages.push(copilot_client::Message {
+            role: "user".to_string(),
+            content: format!("`git status`:\n```\n{}\n```\n\n", status.trim()),
+        });
+
+        // Add git diff
+        if !diff.trim().is_empty() {
+            messages.push(copilot_client::Message {
+                role: "user".to_string(),
+                content: format!(
+                    "`git diff --staged`:\n```diff\n{}\n```\n\n",
+                    diff.trim()
+                ),
+            });
+        }
+
+        messages.push(copilot_client::Message {
+            role: "user".to_string(),
+            content: "Generate a conventional commit message based on the changes above:".to_string(),
+        });
+
+        debug!("Sending request to GitHub Copilot with model: {}", model);
+
+        let response = copilot_client
+            .chat_completion(messages, model.to_string())
+            .await
+            .map_err(|e| AppError::AuthenticationError(e.to_string()))?;
+
+        let commit_message = response
+            .choices
+            .first()
+            .ok_or(AppError::NoResponseFromAi)?
+            .message
+            .content
+            .trim()
+            .to_string();
+
+        info!("Generated commit message with GitHub Copilot: {}", commit_message);
+
+        Ok(commit_message)
+    }
+
     pub fn list_models(&self) -> Result<Vec<String>> {
-        // This is a simplified implementation
-        // In a real implementation, you'd query the provider for available models
+        // For GitHub Copilot, we need to query the API for available models
+        if self.config.ai.provider == "github" {
+            // Return the models that are typically available in GitHub Copilot
+            // These would normally be fetched from the API, but for simplicity we'll use a static list
+            return Ok(vec![
+                "gpt-4o".to_string(),
+                "gpt-4o-mini".to_string(),
+                "claude-3-5-sonnet".to_string(),
+                "claude-3-haiku".to_string(),
+                "gemini-2.0-flash-001".to_string(),
+            ]);
+        }
+
+        // For other providers, use the existing static lists
         let models = match self.config.ai.provider.as_str() {
             "openai" => vec![
                 "gpt-4o".to_string(),
@@ -125,11 +225,6 @@ impl AiClient {
                 "codellama:7b".to_string(),
                 "gemma:2b".to_string(),
                 "mistral:7b".to_string(),
-            ],
-            "github" => vec![
-                "gpt-4o".to_string(),
-                "gpt-4o-mini".to_string(),
-                "claude-3-5-sonnet".to_string(),
             ],
             _ => return Err(AppError::UnsupportedProvider(self.config.ai.provider.clone()).into()),
         };

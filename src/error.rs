@@ -17,6 +17,15 @@ pub enum AppError {
     #[error("No response received from AI")]
     NoResponseFromAi,
 
+    #[error("GitHub CLI (gh) not found. Please install GitHub CLI first")]
+    GitHubCliNotFound,
+
+    #[error("Authentication failed")]
+    AuthenticationFailed,
+
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
+
     #[error("Git error: {0}")]
     Git(#[from] git2::Error),
 
