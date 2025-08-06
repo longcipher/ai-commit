@@ -39,6 +39,30 @@ cargo install --git https://github.com/longcipher/ai-commit.git
 
 ## Quick Start
 
+### Option 1: GitHub Copilot (Recommended)
+
+1. Authenticate with GitHub Copilot:
+
+```bash
+ai-commit auth
+```
+
+1. Set GitHub as your provider:
+
+```bash
+ai-commit config set-provider github
+ai-commit config set-model gpt-4o-mini
+```
+
+1. Stage some changes and generate a commit:
+
+```bash
+git add .
+ai-commit
+```
+
+### Option 2: Other AI Providers
+
 1. Configure your AI provider:
 
 ```bash

@@ -16,6 +16,7 @@
 ### Core Dependencies
 - **clap**: CLI with derive features (`#[command]`, `#[arg]`)
 - **genai**: Multi-provider AI client (OpenAI, Anthropic, Gemini, etc.)
+- **copilot-client**: Official GitHub Copilot API client for Rust
 - **git2**: Git operations (wrap Repository in `GitRepo` struct)
 - **tokio**: Async runtime only for AI calls
 - **serde + toml**: Configuration serialization
@@ -86,11 +87,15 @@ let status = repo.get_status()?;  // Returns GitStatus with .staged, .modified, 
 
 ## AI Provider Notes
 
-- **GitHub Copilot**: Uses GitHub CLI auth (no API key needed)
+- **GitHub Copilot**: Uses dedicated `copilot-client` crate with GitHub CLI auth (no API key needed)
+  - Authentication via `ai-commit auth` command
+  - Token retrieval from GitHub CLI or environment
+  - Direct access to `api.githubcopilot.com`
+  - Supports GPT-4o, Claude 3.5 Sonnet, Gemini models
 - **Ollama**: Local models (no API key needed) 
 - **Others**: Require environment variables (`OPENAI_API_KEY`, etc.)
 
-The `genai` crate handles provider abstraction - don't implement custom HTTP clients.
+The `genai` crate handles provider abstraction for most providers. GitHub Copilot uses a dedicated client implementation.
 
 ## Interactive Flow
 
